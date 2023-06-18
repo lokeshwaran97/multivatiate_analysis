@@ -1,0 +1,483 @@
+---
+title: "Multivariate Analysis of Population and GDP growth"
+author: "Lokeshwaran Arunachalam (University of Nottingham)"
+output:
+  html_document: default
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+## Data Loading and Manipulation
+
+```{r cars}
+# Load the data
+gap = read.csv("gap.csv")
+```
+
+```{r}
+# apply log to GDP values
+log_gap = data.frame(gap)
+log_gap[, 3:14] = log(gap[, 3:14])
+
+```
+
+```{r}
+#GDP values
+gdp = gap[, 1:14]
+years = seq(1952, 2007, 5)
+heading = c("continent", "country")
+col_names_gdp = c(heading, years)
+colnames(gdp) = col_names_gdp
+```
+
+
+```{r}
+#Life Expectancy values
+life_exp_year = gap[, 15:26]
+attr_row = gap[, 1:2]
+life_exp = cbind(attr_row, life_exp_year)
+colnames(life_exp) = col_names_gdp
+```
+
+## Exploratory Data Analysis
+
+```{r }
+library(ggplot2)
+ggplot(log_gap, aes(x = gdpPercap_1952, y = lifeExp_1952, colour = continent)) + geom_point() + geom_text(aes(x = gdpPercap_1952+0.05, label = country), size = 2, hjust = 0) + labs(x = "GDP 1952", y = "Life Expectancy 1952") + ggtitle("GDP Vs Life Expectancy in the year 1952")
+```
+
+In the year 1952 the European countries have Higher GDP and Life expectancy compared to other continents. Whereas, the African and Asian countries has lowest GDP and life expectancy. The Kuwait is one of the Asian country which has the highest GDP in the year 1952. The American countries GDP and life span is little bit lower than the European countries.
+
+```{r }
+ggplot(log_gap, aes(x = gdpPercap_2007, y = lifeExp_2007, colour = continent)) + geom_point() + geom_text(aes(x = gdpPercap_2007+0.05, label = country), size = 2, hjust = 0) + labs(x = "GDP 2007", y = "Life Expectancy 2007") + ggtitle("GDP Vs Life Expectancy in the year 2007")
+```
+
+In the year 2007, the European, Oceania and some of the Asian countries achieved average life expectancy nearly equal to 80. The growth rate of Asian countries is staggering in both GDP and lifespan when compared to the year 1952. The Japan has the largest life expectancy when compared to other countries. Afghanistan is the only Asian country whose life expectancy is below 45 years of age. 
+
+## Principal Component Analysis
+
+### Principal Component Analysis for GDP 
+
+```{r}
+
+gdp_X = as.matrix(log(gdp[, 3:14]))
+#PCA using covariance matrix
+gdp_pca_cov = prcomp(gdp_X, scale = FALSE)
+summary(gdp_pca_cov)
+```
+
+
+#### PCA of GDP using covariance matrix : 
+The proportion of variation for PC1 and PC2 is $94\%$ and $4\%$. The combined proportion of variance explained by PC3 to PC4 vectors were only $2\%$.
+
+
+```{r}
+#scree plot
+plot(gdp_pca_cov, main = "PCA proportion of variance for GDP") 
+```
+
+From the scree plot we can clearly see that the variance of the first two principal component cover most of the variance in the data. Hence we can retain first two principal components.
+
+```{r}
+library(ggfortify)
+autoplot(gdp_pca_cov, data = gap, colour="continent", scale=FALSE, label.label = "country", label = TRUE, label.size = 2, main="GDP PCA using covariance matrix")
+```
+
+The PC1 demonstrates rate of growth trend in GDP from 1952 to 2007. Whereas, the PC2 depicts the initial GDP values of the countries. For example Kuwait, switzerland and United States had the largest GDP values in 1952. The countries from Africa seems to have highest rate of growth in GDP and the European countries have larger GDP values. However, rate of growth of the GDP for the European countries is very low when compared to countries from Asia. 
+
+```{r}
+#PCA using correlation matrix
+gdp_pca_cor = prcomp(gdp_X, scale = TRUE)
+summary(gdp_pca_cor)
+```
+
+PCA of GDP using correlation matrix :
+we can see that there isn't much difference in proportion of variance and standard deviation of PCA using covariance or correlation. However, we would combine the PC score result of GDP and life expectancy in further analysis. Hence, if we use scaled data it will be helpful for analysis.
+
+
+### Principal Component Analysis for Life Expectancy
+
+```{r}
+life_X = as.matrix(life_exp[3:14])
+#PCA using covariance matrix
+life_exp_cov = prcomp(life_X, scale = FALSE)
+summary(life_exp_cov)
+```
+
+
+#### PCA of Life Expectancy using covariance matrix : 
+The proportion of variation for PC1 and PC2 is $92\%$ and $5\%$. The combined proportion of variance explained by PC3 to PC4 vectors were only $3\%$.
+
+```{r}
+#scree plot
+plot(life_exp_cov, main = "PCA proportion of variance for Life expectancy") 
+```
+
+From the scree plot for life expectancy we can depict that the variance of the first two principal component cover most of the variance in the data. Hence we can retain first two principal components.
+
+
+
+```{r}
+autoplot(life_exp_cov, data = gap, colour="continent", scale=FALSE, label.label = "country", label = TRUE, label.size = 2, main="Life Expectancy PCA using covariance matrix")
+```
+
+The PC1 demonstrates rate of growth trend in life expectancy from 1952 to 2007. Whereas, the PC2 depicts the initial life span of the countries. For example, most of the PC values for African countries were on Top left indicates that they had low average life expectancy in 1952 and there is no evident progress over the years in terms of life expectancy.
+
+```{r}
+#PCA using correlation matrix
+life_exp_cor = prcomp(life_X, scale = TRUE)
+summary(life_exp_cor)
+```
+
+
+#### PCA of life expectancy using correlation matrix :
+we can see that there isn't much difference in proportion of variance but there is huge difference in standard deviation for PC1 score. The standard deviation of PC1 using covariance matrix it is $38.63$ but using correlation matrix is $3.3$. Most of the machine learning algorithm will work better if they have scaled data. Hence we will use PCA using correlation matrix for further analysis.
+
+```{r}
+autoplot(life_exp_cor, data = gap, colour="continent", scale=FALSE, label.label = "country", label = TRUE, label.size = 2, main="Life Expectancy PCA using correlation matrix")
+```
+
+#### Combination of PCA vectors of GDP and Life Expectancy
+
+```{r}
+ggplot(gap, aes(x = gdp_pca_cor$x[, 2], y = life_exp_cor$x[, 2] , colour = continent))+geom_point() +geom_text(aes(label = country), size = 2, angle=75) + labs(x = "GDP PC 2", y = "Life Expectancy PC 2") 
+```
+```{r}
+ggplot(gap, aes(x = gdp_pca_cor$x[, 1], y = life_exp_cor$x[, 2] , colour = continent))+geom_point() +geom_text(aes(x = gdp_pca_cor$x[, 1]+0.15, label = country), size = 2, angle=75) + labs(x = "GDP PC 1", y = "Life Expectancy PC 2") 
+```
+
+
+```{r}
+ggplot(gap, aes(x = gdp_pca_cor$x[, 2], y = life_exp_cor$x[, 1] , colour = continent))+geom_point() +geom_text(aes(x = gdp_pca_cor$x[, 2]+0.15, label = country), size = 2, angle=75) + labs(x = "GDP PC 2", y = "Life Expectancy PC 1") 
+```
+
+
+```{r}
+ggplot(gap, aes(x = gdp_pca_cor$x[, 1], y = life_exp_cor$x[, 1] , colour = continent))+geom_point() +geom_text(aes(x = gdp_pca_cor$x[, 1]+0.15, label = country), size = 2, angle=75) + labs(x = "GDP PC 1", y = "Life Expectancy PC 1") 
+```
+
+#### GDP PC1 Vs Life Expectancy PC1 chart : 
+From the data we can observe rate of GDP growth of African countries is very high but the life expectancy rate is very low. The European countries showed more interest in improving living standard than GDP growth over the period of years. American countries gave equal importance to both GDP and living standard.
+
+## Multidimensional Scaling : 
+
+```{r}
+dist_data = dist(as.matrix(scale(log_gap[, 3:dim(gap)[2]])))
+mul_dim_s = cmdscale(dist_data, eig = TRUE, k = 2)
+
+```
+
+Scaling the data ensures all the variables relationship have equal weight in the calculation of distance. 
+
+
+```{r}
+ggplot(gap, aes(x = mul_dim_s$points[,1], y = mul_dim_s$points[,2] , colour = continent))+geom_point()+ labs(x = "PC 1", y = "PC 2") +geom_text(aes(x = mul_dim_s$points[,1]+0.15, label = country), size = 2, angle=75) + ggtitle("Multidimensional Scaling")
+```
+
+The PC1 represents  life span of the countries and the y axis represent rate of the GDP growth from 1952 to 2007.The X axis graph values are similar to PCA of life expectancy and the Y axis values can be related to the PCA values of GDP.
+
+## Hypothesis Test 
+
+### Hypothesis Test for the year 2007
+
+```{r}
+gdp_lif_2007 = gap[c("gdpPercap_2007", "lifeExp_2007", "continent")]
+gdp_lif_2007["gdpPercap_2007"]  = log(gdp_lif_2007["gdpPercap_2007"])
+gdp_lif_2007_asian = subset(gdp_lif_2007, continent == "Asia")
+gdp_lif_2007_europe = subset(gdp_lif_2007, continent == "Europe")
+```
+
+
+Null Hypothesis $H_{0}$ : The mean GDP and average life span of European and Asian were same in the year 2007.
+
+Alternate Hypothesis $H_{1}$ : The mean GDP and average life span of European and Asian countries were different in the year 2007.
+
+```{r,  message=FALSE}
+library(ICSNP)
+HotellingsT2(gdp_lif_2007_asian[c("gdpPercap_2007","lifeExp_2007")], gdp_lif_2007_europe[c("gdpPercap_2007","lifeExp_2007")])
+```
+The P-value is $p = 2.55e^{-5}$ and $\delta^{2} = 12.681$
+
+```{r}
+qf(0.95,2, 60)
+```
+
+The critical value for $\alpha = 0.05$ is 
+$F_{2,60,0.005}  = 3.150411$
+
+
+The probability value is $2.55e^{-5}$ which is less than $0.05$ and $\delta^{2} > F_{2,60,0.005}$. Hence we will reject the Null Hypothesis. Therefore the mean value of GDP and life expectancy of European and Asian countries were different in the year 2007.
+
+### Hypothesis Test for the year 1952
+
+```{r}
+gdp_lif_1952 = gap[c("gdpPercap_1952", "lifeExp_1952", "continent")]
+gdp_lif_1952["gdpPercap_1952"]  = log(gdp_lif_1952["gdpPercap_1952"])
+gdp_lif_1952_asian = subset(gdp_lif_1952, continent == "Asia")
+gdp_lif_1952_europe = subset(gdp_lif_1952, continent == "Europe")
+```
+
+Null Hypothesis $H_{0}$ : The mean GDP and average life span of European and Asian were same in the year 1952.
+
+Alternate Hypothesis $H_{1}$ : The mean GDP and average life span of European and Asian countries were different in the year 1952.
+
+```{r}
+HotellingsT2(gdp_lif_1952_asian[c("gdpPercap_1952","lifeExp_1952")], gdp_lif_1952_europe[c("gdpPercap_1952","lifeExp_1952")])
+```
+
+The P-value is $p = 1.21e^{-11}$ and $\delta^{2} = 39.347$
+
+The critical value for $\alpha = 0.05$ is 
+$F_{2,60,0.005}  = 3.150411$
+
+The probability value is $1.21e^{-11}$ which is less than $0.05$ and $\delta^{2} > F_{2,60,0.005}$. Hence we will reject the Null Hypothesis. Therefore the mean value of GDP and life expectancy of European and Asian countries were different in the year 1952. 
+
+There is an increase in the probability value in 2007 when compared to the year 1952. Hence, the mean value of GDP and life expectancy of European and Asian countries are moving closer over the period.
+
+## Linear Discriminant Analysis
+
+```{r, set.seed(134)}
+library(MASS)
+library(caTools)
+
+
+copy_gap = data.frame(gap)
+copy_gap[, 3:14] = log(copy_gap[, 3:14])
+copy_gap = copy_gap[-2]
+
+train_index = sample.split(Y = copy_gap, SplitRatio = 0.8)
+train = copy_gap[train_index, ]
+test = copy_gap[!train_index, ]
+
+lda_model = lda(train[, 2:length(train)], train[,1])
+```
+
+
+```{r}
+lda_pred = predict(lda_model, test[, 2:length(test)])
+accuracy_lda = sum(lda_pred$class== test$continent)/dim(test)[1]*100
+accuracy_lda = round(accuracy_lda)
+```
+The accuracy of the LDA model is $`r accuracy_lda`\%$
+
+```{r}
+table(lda_pred$class, test$continent)
+```
+The Rows represent the number of predicted countries and the columns represent the number of actual countries in a continent.
+
+### Dimensionality Reduction using Fisher's Linear Discriminant Rule
+
+
+```{r, warning=FALSE}
+library(vcvComp)
+B=cov.B(copy_gap[,2:length(train)], copy_gap[,1])
+W=cov.W(copy_gap[,2:length(train)], copy_gap[,1]) 
+gap_eig <- eigen(solve(W)%*% B)
+V <- gap_eig$vectors[,1:2]
+Z <- as.matrix(copy_gap[,2:length(copy_gap)])%*% V
+ggplot2::qplot(as.numeric(Z[,1]), as.numeric(Z[,2]), colour=copy_gap$continent, xlab='LD1',
+               ylab='LD2')+ labs(colour = "continent")
+```
+
+The plot shows that LDA projected vectors can be used to separate continents easily when compared to vectors using Principal Component Scores. The LDA vectors main objective is to maximize the between-class variance and increase the within-class variance.
+
+## Clustering
+
+### K means Clustering
+
+```{r, set.seed(124),  message=FALSE}
+library(factoextra)
+
+fviz_nbclust(copy_gap[, 2:length(copy_gap)], kmeans, method = "wss")
+```
+
+From the plot we can decide there are 3 clusters based on Total within sum of squares in clusters. There is only a minor improvement when we move from cluster 3 to 4. However, there is a slight improvement when we move from cluster 4 to 10 we can neglect those clusters because there is no major improvement in total sum of squares within clusters.
+
+```{r}
+kmeanss = kmeans(copy_gap[, 2:length(copy_gap)], centers = 3, nstart = 20)
+fviz_cluster(kmeanss, data = copy_gap[, 2:length(copy_gap)], geom = "point")
+```
+
+The Log of GDP values were taken to remove outliers.
+
+```{r}
+gap_clone = data.frame(copy_gap)
+gap_clone$cluster <- factor(kmeanss$cluster)
+ggplot(gap_clone, aes(x = gdp_pca_cor$x[, 1], y = life_exp_cor$x[, 1] , colour = cluster, shape = continent))+geom_point() + labs(x = "GDP PCA 1", y = "Life Expectancy PCA 1")
+```
+
+### Agglomerative Hierarchical Clustering
+
+
+```{r}
+data_clus = copy_gap[, 2:length(copy_gap)]
+mat_clus = as.matrix(data_clus)
+dist_clus = dist(mat_clus, method = "euclidean")
+```
+
+#### Hierarchical clustering using Single linkage
+
+```{r}
+hier_clus_sing = hclust(dist_clus, method="single")
+plot(hier_clus_sing, labels = gap$continent, cex = 0.5)
+```
+
+##### Single Linkage Confusion matrix
+```{r}
+table(cutree(hier_clus_sing, k=3), gap$continent)
+```
+
+#### Hierarchical clustering using complete linkage
+
+```{r}
+hier_clus_comp = hclust(dist_clus, method="complete")
+plot(hier_clus_comp, labels = gap$continent, cex=0.3)
+```
+
+##### Complete Linkage confusion matrix
+```{r}
+table(cutree(hier_clus_comp, k=3), gap$continent)
+
+```
+
+#### Hierarchical clustering using Group Average 
+```{r}
+hier_clus_avg = hclust(dist_clus, method="average")
+plot(hier_clus_avg, labels = gap$continent, cex=0.3)
+```
+
+##### Group average confusion matrix
+```{r}
+table(cutree(hier_clus_avg, k=3), gap$continent)
+```
+
+
+The dendorgrams shows that complete linkage and group average method able to cluster similar countries that belongs to same continent. However, the confusion matrix shows that group average method performs well compared to complete linkage method.
+
+
+
+#### Compare K means with Hierarchial clustering
+
+##### Kmeans clustering confusion matrix
+```{r}
+table(gap_clone$cluster, gap$continent)
+```
+
+The hierarchical clustering using average method performs better than K-means clustering. The log values of GDP values was taken to remove outlier. This method gives high accuracy of clustering when compared to scaled data.
+The countries of Africa, Europe and Asia continents mostly cluster together naturally. However, countries of America and Oceania continents don't cluster naturally
+
+## Linear Regression 
+
+```{r, message=FALSE}
+library(pls)
+gdp_data  = gap[, 3:14]
+lifeExp_2007 = gap["lifeExp_2007"]
+merg_data = cbind(gdp_data,lifeExp_2007 )
+```
+
+
+```{r, set.seed(126)}
+train_index = sample(1:142, size = 30, replace = FALSE)
+lin_mod = lm(lifeExp_2007 ~ ., data = merg_data[train_index,])
+test_pred = predict(lin_mod, merg_data[-train_index, 1:length(merg_data)-1])
+summary(lin_mod)
+```
+
+
+```{r, set.seed(127)}
+errors <- test_pred- merg_data[-train_index, length(merg_data)]
+sq_error_lin = sqrt(mean((errors)^2))
+
+```
+
+The Root mean square error using Linear regression model is $`r sq_error_lin`$
+
+### Principal Component Regression
+
+```{r, set.seed(128)}
+pcr_mod_2 = pcr(lifeExp_2007 ~ ., data=merg_data, validation='CV', scale = TRUE)
+plot(RMSEP(pcr_mod_2), legendpos = "topright")
+```
+
+As we can observe that using 2 principal component will yield better accuracy for Principal Component Regression model
+
+```{r, set.seed(129)}
+pca_life_exp = prcomp(merg_data[ , 1:length(merg_data)-1])
+pc_scores = pca_life_exp$x[, 1:2]
+
+train = pc_scores[train_index, ]
+test = pc_scores[-train_index, ]
+pca_train_data = data.frame(y = merg_data[train_index, ]$lifeExp_2007, x= train)
+pca_lm_mod = lm(y ~ ., data = pca_train_data)
+
+test_data = data.frame(x = test)
+test_pred = predict(pca_lm_mod, test_data)
+errors <- test_pred- merg_data[-train_index, ]$lifeExp_2007
+sq_error_pc = sqrt(mean((errors)^2))
+```
+
+The principal Component Regression with two principal component yielded better accuracy than using other combination of principal component vectors 
+
+The Root mean square error using Principal component regression model is $`r sq_error_pc`$
+
+### Ridge Regression
+
+```{r, set.seed(130), message=FALSE}
+library(glmnet)
+
+ridge_mod = glmnet(merg_data[, 1:length(merg_data)-1], merg_data[, length(merg_data)], alpha = 0)
+plot(ridge_mod, xvar = "lambda")
+```
+
+The increase in lambda values leads to constrain the attribute values nearly equal to zero
+
+```{r, set.seed(131)}
+lambdas <- 10^seq(3,-2,by=-0.1)
+cv_fit <- cv.glmnet(as.matrix(merg_data[, 1:length(merg_data)-1]), as.matrix(merg_data[, length(merg_data)]), alpha = 0, lambda = lambdas)
+plot(cv_fit)
+```
+
+
+```{r}
+min_lambda = cv_fit$lambda.min
+```
+
+The lambda value $`r min_lambda`$ yields minimum mean squared error in Ridge regression model
+
+```{r, set.seed(132)}
+ridge_mod = glmnet(merg_data[train_index, 1:length(merg_data)-1], merg_data[train_index, length(merg_data)], alpha = 0, lambda = 0.794)
+```
+
+```{r, set.seed(133)}
+test_data = data.frame(x = test)
+test_pred = predict(ridge_mod, as.matrix(merg_data[-train_index, 1:length(merg_data)-1]))
+errors <- test_pred- merg_data[-train_index, length(merg_data)]
+sq_error_rid = sqrt(mean((errors)^2))
+```
+
+The Root mean square error using Ridge regression model is $`r sq_error_rid`$
+
+The Ridge regression RMSE score is similar to Principal component regression model.
+
+The Ridge regression and Principal Component Regression model accuracy is better than linear Regression. The principal component regression model uses only 2 principal component vectors to train the model. Therefore, we select Principal Component model as an optimal model.
+
+
+
+
+
+
+
+
+ 
+
+
+
+
+
+
+
+
